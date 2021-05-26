@@ -1,80 +1,71 @@
-extern crate log;
-extern crate pnet;
-extern crate pnet_datalink;
-
-#[macro_use]
-extern crate serde_json;
-
-#[macro_use]
-extern crate actix_web;
-
-#[macro_use]
-extern crate dotenv_codegen;
-
 #[macro_use]
 extern crate diesel;
+#[macro_use]
+extern crate serde_derive;
 
-use log::{ info, debug};
+use std::net::{SocketAddrV4, Ipv4Addr};
+
+use std::env;
 use dotenv::dotenv;
+use actix_web::{middleware, App, HttpServer};
 use listenfd::ListenFd;
 
-use handlebars::Handlebars;
-use actix_web::{ web, App, HttpServer };
+use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
-use diesel::SqliteConnection;
 
-mod network;
+mod users;
 mod errors;
 mod models;
 mod schema;
-mod routes;
-mod routes_db;
 
-pub type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
+type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
+
+    env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
+
+    let database_url = 
+        env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+
+    let ip = 
+        env::var("IP")
+        .expect("IP not set")
+        .parse::<Ipv4Addr>()
+        .expect("Unable to parse IP");
+
+    let port = 
+        env::var("PORT")
+        .expect("PORT not set")
+        .parse::<u16>()
+        .expect("Unable to parse PORT");
+
+    let socket = SocketAddrV4::new(ip, port);
 
     // ListenFD to recompile with running server
     // systemfd --no-pid -s http::5000 -- cargo watch -x run
     let mut listenfd = ListenFd::from_env();
-    
-    // DATABASE using SQLITE, Diesel and R2D2
-    let database_url = dotenv!("DATABASE_URL");
-    let database_pool = Pool::builder()
-        .build(ConnectionManager::new(database_url))
-        .expect("Failed to create DB pool");
 
-    // HANDLEBARS template HTML templating system
-    let mut handlebars = Handlebars::new()
-        .register_templates_directory(".html", "./static/templates")
-        .expect("Failed to register handlebars");
-    let handlebars_ref = web::Data::new(handlebars);
+    let manager = ConnectionManager::<SqliteConnection>::new(database_url);
+    let pool = r2d2::Pool::builder()
+        .build(manager)
+        .expect("Failed to create pool.");
 
-    // ACTIX WEB SERVER
     let mut server = HttpServer::new(move || {
         App::new()
-            .data(database_pool.clone())
-            .wrap(errors::error_handlers())
-            .app_data(handlebars_ref.clone())
-            .service(routes::index)
-            .service(routes::user)
-            .service(routes::getid)
+            .data(pool.clone())
+            .wrap(middleware::Logger::default())
+            .configure(users::configure)
     });
-    
-    // ListenFD takes over as TCP listner
+
     server = match listenfd.take_tcp_listener(0)? {
         Some(listener) => server.listen(listener)?,
-        None => {
-            let host = dotenv!("HOST");
-            let port = dotenv!("PORT");
-            server.bind(format!("{}:{}", host, port))?
-        }
+        None => server.bind((socket.ip().clone(), socket.port()))?,
     };
 
-    info!("Starting server");
     server
         .run()
         .await?;

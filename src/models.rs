@@ -1,31 +1,45 @@
-use crate::schema::*;
-use serde::{Deserialize, Serialize};
+use crate::errors::AppError;
+use crate::schema::users;
+use diesel::prelude::*;
 
-#[derive(Debug, Serialize, Deserialize, Queryable)]
+type Result<T> = std::result::Result<T, AppError>;
+
+#[derive(Queryable, Identifiable, Serialize, Debug, PartialEq)]
 pub struct User {
     pub id: i32,
-    pub fname: String,
-    pub lname: String,
-    pub is_admin: i32,
-    pub num_bucks: i32,
-    pub date_create: String,
+    pub username: String,
 }
 
-#[derive(Debug, Insertable)]
-#[table_name = "users"]
-pub struct UserNew<'a> {
-    pub fname: &'a str,
-    pub lname: String,
-    pub is_admin: i32,
-    pub num_bucks: i32,
-    pub date_created: &'a str,
+pub fn create_user(conn: &SqliteConnection, username: &str) -> Result<User> {
+    conn.transaction(|| {
+        diesel::insert_into(users::table)
+            .values((users::username.eq(username),))
+            .execute(conn)?;
+
+        users::table
+            .order(users::id.desc())
+            .select((users::id, users::username))
+            .first(conn)
+            .map_err(Into::into)
+    })
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UserJson {
-    pub fname: String,
-    pub lname: String,
-    pub is_admin: i32,
-    pub num_bucks: i32,
-    pub address: String,
+pub enum UserKey<'a> {
+    Username(&'a str),
+    ID(i32),
+}
+
+pub fn find_user<'a>(conn: &SqliteConnection, key: UserKey<'a>) -> Result<User> {
+    match key {
+        UserKey::Username(name) => users::table
+            .filter(users::username.eq(name))
+            .select((users::id, users::username))
+            .first::<User>(conn)
+            .map_err(Into::into),
+        UserKey::ID(id) => users::table
+            .find(id)
+            .select((users::id, users::username))
+            .first::<User>(conn)
+            .map_err(Into::into),
+    }
 }
