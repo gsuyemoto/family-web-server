@@ -82,14 +82,17 @@ fn get_mac_through_arp(target_ip: Ipv4Addr) -> MacAddr {
 async fn main() -> Result<(), std::io::Error> {
     
     tide::log::start();
+
     let mut app = tide::new();
     app.at("/").serve_file("static/index.html")?;
+    
     app.at("/getid").get(|req: tide::Request<()>| async move {
         println!("ip: {:?}", req.remote().unwrap().parse::<Ipv4Addr>());
         let ip = req.remote().unwrap().split(':').next().unwrap().parse::<Ipv4Addr>().unwrap();
         let mac = get_mac_through_arp(ip);
         Ok(mac.to_string())
     });
+
     app.listen("suyemoto.com:80").await?;
     Ok(())
 }
