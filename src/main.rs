@@ -2,7 +2,6 @@
 extern crate diesel;
 #[macro_use]
 extern crate serde_derive;
-extern crate handlebars;
 
 use std::net::{SocketAddrV4, Ipv4Addr};
 use std::env;
@@ -11,7 +10,6 @@ use log::{debug, error, log_enabled, info, Level};
 use dotenv::dotenv;
 use actix_web::{web, get, middleware, App, HttpResponse, HttpServer};
 use listenfd::ListenFd;
-use handlebars::Handlebars;
 use serde_json::json;
 
 use diesel::prelude::*;
@@ -24,17 +22,6 @@ mod models;
 mod schema;
 
 type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
-
-// Macro documentation can be found in the actix_web_codegen crate
-#[get("/")]
-async fn index(hb: web::Data<Handlebars<'_>>) -> HttpResponse {
-    let data = json!({
-        "name": "Handlebars"
-    });
-    let body = hb.render("index", &data).unwrap();
-
-    HttpResponse::Ok().body(body)
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -59,11 +46,6 @@ async fn main() -> std::io::Result<()> {
         .parse::<u16>()
         .expect("Unable to parse PORT");
 
-    let mut handlebars = Handlebars::new()
-        .register_templates_directory(".html", "./static/templates")
-        .unwrap();
-    let handlebars_ref = web::Data::new(handlebars);
-
     let manager = ConnectionManager::<SqliteConnection>::new(database_url);
     let pool = r2d2::Pool::builder()
         .build(manager)
@@ -72,10 +54,9 @@ async fn main() -> std::io::Result<()> {
     let mut server = HttpServer::new(move || {
         App::new()
             .data(pool.clone())
-            .app_data(handlebars_ref.clone())
             .wrap(middleware::Logger::default())
             .configure(route_users::configure)
-            .service(index)
+            .configure(route_static::configure)
     });
 
     // ListenFD to recompile with running server

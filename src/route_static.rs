@@ -1,7 +1,14 @@
 use actix_web::{get, post, web, Responder, HttpResponse};
 use serde_json::json;
-use handlebars::Handlebars;
 use log::{info};
+use askama::Template;
+
+#[derive(Template)] 
+#[template(path = "index.html")] 
+
+struct IndexVals<'a> {
+    name: &'a str,
+}
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
@@ -9,18 +16,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 }
 
 #[get("/")]
-async fn index(hb: web::Data<Handlebars<'_>>
-) -> impl Responder {
+pub async fn index() -> impl Responder {
 
-    let data = json!
-        ({
-            "name": "Gary"
-        });
-
-    let body = hb
-        .render("index", &data)
-        .unwrap();
-
-    info!("Responding with: {:?}", body);  
-    HttpResponse::Ok().body(body)
+    let name = IndexVals { name: "Gary" };
+    HttpResponse::Ok().body(name.render().unwrap())
 }
