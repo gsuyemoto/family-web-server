@@ -2,29 +2,45 @@
 extern crate diesel;
 #[macro_use]
 extern crate serde_derive;
+extern crate handlebars;
 
 use std::net::{SocketAddrV4, Ipv4Addr};
-
 use std::env;
+
+use log::{debug, error, log_enabled, info, Level};
 use dotenv::dotenv;
-use actix_web::{middleware, App, HttpServer};
+use actix_web::{web, get, middleware, App, HttpResponse, HttpServer};
 use listenfd::ListenFd;
+use handlebars::Handlebars;
+use serde_json::json;
 
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
-mod users;
+mod route_static;
+mod route_users;
 mod errors;
 mod models;
 mod schema;
 
 type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 
+// Macro documentation can be found in the actix_web_codegen crate
+#[get("/")]
+async fn index(hb: web::Data<Handlebars<'_>>) -> HttpResponse {
+    let data = json!({
+        "name": "Handlebars"
+    });
+    let body = hb.render("index", &data).unwrap();
+
+    HttpResponse::Ok().body(body)
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    env::set_var("RUST_LOG", "actix_web=info");
+    env::set_var("RUST_LOG", "actix_web=info, debug");
     env_logger::init();
 
     let database_url = 
@@ -43,11 +59,10 @@ async fn main() -> std::io::Result<()> {
         .parse::<u16>()
         .expect("Unable to parse PORT");
 
-    let socket = SocketAddrV4::new(ip, port);
-
-    // ListenFD to recompile with running server
-    // systemfd --no-pid -s http::5000 -- cargo watch -x run
-    let mut listenfd = ListenFd::from_env();
+    let mut handlebars = Handlebars::new()
+        .register_templates_directory(".html", "./static/templates")
+        .unwrap();
+    let handlebars_ref = web::Data::new(handlebars);
 
     let manager = ConnectionManager::<SqliteConnection>::new(database_url);
     let pool = r2d2::Pool::builder()
@@ -57,13 +72,19 @@ async fn main() -> std::io::Result<()> {
     let mut server = HttpServer::new(move || {
         App::new()
             .data(pool.clone())
+            .app_data(handlebars_ref.clone())
             .wrap(middleware::Logger::default())
-            .configure(users::configure)
+            .configure(route_users::configure)
+            .service(index)
     });
+
+    // ListenFD to recompile with running server
+    // systemfd --no-pid -s http::5000 -- cargo watch -x run
+    let mut listenfd = ListenFd::from_env();
 
     server = match listenfd.take_tcp_listener(0)? {
         Some(listener) => server.listen(listener)?,
-        None => server.bind((socket.ip().clone(), socket.port()))?,
+        None => server.bind((ip, port))?,
     };
 
     server
