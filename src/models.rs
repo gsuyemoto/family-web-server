@@ -1,5 +1,5 @@
 use crate::errors::AppError;
-use crate::schema::users;
+use crate::schema::{users, devices};
 use diesel::prelude::*;
 
 type Result<T> = std::result::Result<T, AppError>;
@@ -8,38 +8,43 @@ type Result<T> = std::result::Result<T, AppError>;
 pub struct User {
     pub id: i32,
     pub username: String,
+    pub points: i32,
+    pub is_admin: i32,
 }
 
-pub fn create_user(conn: &SqliteConnection, username: &str) -> Result<User> {
+#[derive(Insertable)]
+#[table_name="users"]
+pub struct NewUser {
+    pub username: String,
+    pub points: i32,
+    pub is_admin: i32,
+}
+
+//#[derive(Queryable, Identifiable, Serialize, Debug, PartialEq)]
+//pub struct Devices {
+//    pub id: i32, 
+//    pub username: String,
+//    pub mac: String,
+//    pub name: String,
+//}
+
+pub fn create_user(conn: &SqliteConnection, username: String, is_admin: i32) -> Result<User> {
+    let new_user = NewUser
+    {
+        username,
+        points: 0,
+        is_admin,
+    };
+
     conn.transaction(|| {
         diesel::insert_into(users::table)
-            .values((users::username.eq(username),))
+            .values(&new_user)
             .execute(conn)?;
 
         users::table
             .order(users::id.desc())
-            .select((users::id, users::username))
+            .select((users::id, users::username, users::points, users::is_admin))
             .first(conn)
             .map_err(Into::into)
     })
-}
-
-pub enum UserKey<'a> {
-    Username(&'a str),
-    ID(i32),
-}
-
-pub fn find_user<'a>(conn: &SqliteConnection, key: UserKey<'a>) -> Result<User> {
-    match key {
-        UserKey::Username(name) => users::table
-            .filter(users::username.eq(name))
-            .select((users::id, users::username))
-            .first::<User>(conn)
-            .map_err(Into::into),
-        UserKey::ID(id) => users::table
-            .find(id)
-            .select((users::id, users::username))
-            .first::<User>(conn)
-            .map_err(Into::into),
-    }
 }

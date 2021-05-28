@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Add a new user</title>
+</head>
+
+<body>
+    <form action="/users" method="post">
+        <label for="username">Username:</label><br>
+        <input type="text" id="username" name="username"><br>
+        <p>Is this user an Admin?</p>
+        <input type="radio" id="admin_yes" name="is_admin" value="true">
+        <label for="is_admin">yes</label><br>
+        <input type="radio" id="admin_no" name="is_admin" value="false">
+        <label for="is_admin">no</label><br>
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>

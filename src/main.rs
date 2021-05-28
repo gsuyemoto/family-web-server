@@ -20,6 +20,7 @@ mod route_users;
 mod errors;
 mod models;
 mod schema;
+mod network;
 
 type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 
