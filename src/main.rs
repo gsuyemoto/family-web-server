@@ -4,6 +4,7 @@ extern crate diesel;
 extern crate serde_derive;
 
 use std::net::{SocketAddrV4, Ipv4Addr};
+use std::time::Duration;
 use std::env;
 
 use log::{debug, error, log_enabled, info, Level};
@@ -11,6 +12,7 @@ use dotenv::dotenv;
 use actix_web::{web, get, middleware, App, HttpResponse, HttpServer};
 use listenfd::ListenFd;
 use serde_json::json;
+use tokio;
 
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
@@ -21,6 +23,7 @@ mod errors;
 mod models;
 mod schema;
 mod network;
+mod parsepacket;
 
 type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 
@@ -30,6 +33,14 @@ async fn main() -> std::io::Result<()> {
 
     env::set_var("RUST_LOG", "actix_web=info, debug");
     env_logger::init();
+
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(5));
+        loop {
+            interval.tick().await;
+            network::sniff();
+        }
+    });
 
     let database_url = 
         env::var("DATABASE_URL")

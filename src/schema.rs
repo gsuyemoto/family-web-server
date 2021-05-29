@@ -1,9 +1,12 @@
 table! {
     devices (id) {
         id -> Integer,
-        username -> Nullable<Text>,
-        mac -> Nullable<Text>,
+        username -> Text,
+        addr_mac -> Text,
+        addr_ip -> Nullable<Text>,
         name -> Nullable<Text>,
+        is_watching -> Integer,
+        watch_start -> Nullable<Text>,
     }
 }
 
