@@ -1,9 +1,9 @@
-use crate::network;
-
-use actix_web::{get, post, web, Responder, HttpResponse};
+use actix_web::{get, post, web, Responder, HttpResponse, HttpRequest};
 use serde_json::json;
 use log::{info};
 use askama::Template;
+
+use crate::network;
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
@@ -19,7 +19,6 @@ struct IndexVals<'a> {
 
 #[get("/")]
 pub async fn index() -> impl Responder {
-
     let name = IndexVals { name: "Gary" };
     HttpResponse::Ok().body(name.render().unwrap())
 }
@@ -30,7 +29,12 @@ struct AddVals {}
 
 #[get("/add-user")]
 pub async fn user_add() -> impl Responder {
-
     let empty = AddVals {};
     HttpResponse::Ok().body(empty.render().unwrap())
+}
+
+#[get("/getmac")]
+pub async fn getmac(req: HttpRequest) -> impl Responder {
+    // let ips_macs = network::parse_leases();
+    format!("{:?}", req.peer_addr().unwrap())
 }

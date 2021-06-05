@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Suyemoto Family Site</title>
+    <script>
+        function getID() {
+          var xhttp = new XMLHttpRequest();
+          xhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+             document.getElementById("device01-id").innerHTML = this.responseText;
+            }
+          };
+          xhttp.open("GET", "/getmac", true);
+          xhttp.send();
+        }
+    </script>
+<style>
+    .device-btn {
+        margin-right: 20px;
+        float: left;
+    }
+</style>
+</head>
+<body>
+
+<div>
+    <h2>{{name}}'s Devices</h2>
+  <button class="device-btn" id="device01" type="button" onclick="getID()">iPad</button><div id="device01-id"></div>
+</div>
+
+</body>
+</html>
