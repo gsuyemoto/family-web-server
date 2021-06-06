@@ -8,7 +8,7 @@ use crate::network;
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
     .service(index)
-    .service(user_add);
+    .service(getmac);
 }
 
 #[derive(Template)] 
@@ -21,16 +21,6 @@ struct IndexVals<'a> {
 pub async fn index() -> impl Responder {
     let name = IndexVals { name: "Gary" };
     HttpResponse::Ok().body(name.render().unwrap())
-}
-
-#[derive(Template)] 
-#[template(path = "user_add.html")] 
-struct AddVals {}
-
-#[get("/add-user")]
-pub async fn user_add() -> impl Responder {
-    let empty = AddVals {};
-    HttpResponse::Ok().body(empty.render().unwrap())
 }
 
 #[get("/getmac")]

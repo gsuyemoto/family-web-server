@@ -1,10 +1,10 @@
 table! {
     devices (id) {
         id -> Integer,
-        username -> Text,
+        name -> Text,
         addr_mac -> Text,
         addr_ip -> Nullable<Text>,
-        name -> Nullable<Text>,
+        device -> Nullable<Text>,
         is_watching -> Integer,
         watch_start -> Nullable<Text>,
     }
@@ -13,7 +13,7 @@ table! {
 table! {
     users (id) {
         id -> Integer,
-        username -> Text,
+        name -> Text,
         points -> Integer,
         is_admin -> Integer,
     }
