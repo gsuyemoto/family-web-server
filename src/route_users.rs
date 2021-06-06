@@ -10,7 +10,49 @@ use log::{info, error};
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
     .service(create_user)
+    .service(user_profile)
     .service(get_users);
+}
+
+#[derive(Template, Queryable, Identifiable, Serialize, Debug, PartialEq)]
+#[table_name="users"]
+#[template(path = "profile.html")]
+pub struct UserProfile {
+    pub id: i32,
+    pub name: String,
+    pub points: i32,
+    pub is_admin: i32,
+}
+
+#[get("/users/{name}")]
+pub async fn user_profile (
+    pool: web::Data<Pool>,
+    web::Path((name)): web::Path<(String)>,
+) -> HttpResponse {
+    
+    let conn = pool
+                 .get()
+                 .expect("couldn't get db connection from pool");
+
+    web::block(move ||
+        users::table.filter(users::name.eq(name)).load::<UserProfile>(&conn))
+        .await
+        .map(
+            |user| {
+                //let profile = UserProfile { 
+                //    id: user[0].id,
+                //    name: user[0].name,
+                //    points: user[0].points,
+                //    is_admin: user[0].is_admin,
+                //    devices: Vec::new(),
+                //};
+                HttpResponse::Ok().body(user[0].render().unwrap())
+            })
+        .map_err(
+            |err| {
+                error!("{}", err);
+                HttpResponse::InternalServerError().finish()
+            }).unwrap()
 }
 
 #[derive(Template)] 

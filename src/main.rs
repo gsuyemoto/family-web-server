@@ -39,8 +39,8 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     // let mut device1 = Device2Track::new("F6:FC:B4:5E:C8:2F");
-    let mut device1 = Device2Track::new("ee:f1:3b:99:db:7f");
-    tokio::spawn(async move { device1.begin() });
+    // let mut device1 = Device2Track::new("ee:f1:3b:99:db:7f");
+    // tokio::spawn(async move { device1.begin() });
 
     let database_url = 
         env::var("DATABASE_URL")
