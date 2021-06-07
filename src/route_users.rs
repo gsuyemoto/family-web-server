@@ -1,11 +1,11 @@
 use crate::{models, Pool};
-use crate::schema::{users};
+use crate::schema::{users, devices};
 use crate::errors::AppError;
 
-use actix_web::{get, post, web, Responder, HttpResponse};
+use actix_web::{get, post, web, http, Responder, HttpResponse};
 use diesel::prelude::*;
 use askama::Template;
-use log::{info, error};
+use log::{info, error, debug};
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
@@ -14,20 +14,20 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     .service(get_users);
 }
 
-#[derive(Template, Queryable, Identifiable, Serialize, Debug, PartialEq)]
-#[table_name="users"]
+#[derive(Template)]
 #[template(path = "profile.html")]
 pub struct UserProfile {
-    pub id: i32,
+    pub user_id: i32,
     pub name: String,
     pub points: i32,
     pub is_admin: i32,
+    pub devices: Vec<(i32, String)>,
 }
 
 #[get("/users/{name}")]
 pub async fn user_profile (
-    pool: web::Data<Pool>,
     web::Path((name)): web::Path<(String)>,
+    pool: web::Data<Pool>,
 ) -> HttpResponse {
     
     let conn = pool
@@ -35,24 +35,41 @@ pub async fn user_profile (
                  .expect("couldn't get db connection from pool");
 
     web::block(move ||
-        users::table.filter(users::name.eq(name)).load::<UserProfile>(&conn))
-        .await
-        .map(
-            |user| {
-                //let profile = UserProfile { 
-                //    id: user[0].id,
-                //    name: user[0].name,
-                //    points: user[0].points,
-                //    is_admin: user[0].is_admin,
-                //    devices: Vec::new(),
-                //};
-                HttpResponse::Ok().body(user[0].render().unwrap())
-            })
-        .map_err(
-            |err| {
-                error!("{}", err);
-                HttpResponse::InternalServerError().finish()
-            }).unwrap()
+        users::table
+            .filter(users::name.eq(name))
+            .left_join(devices::table)
+            .select((users::user_id, users::name, users::points, users::is_admin
+                     , devices::id.nullable(), devices::nickname.nullable()))
+            .load::<(i32, String, i32, i32, Option<i32>, Option<String>)>(&conn))
+                .await
+                .map(
+                    |results| {
+                        debug!("num results: {}", results.len());
+
+                        let mut profile = UserProfile { 
+                            user_id:    results[0].0,
+                            name:       results[0].1.clone(),
+                            points:     results[0].2,
+                            is_admin:   results[0].3,
+                            devices:    Vec::new(),
+                        };
+
+                        for result in results {
+                            let device_id           = result.4;
+                            let device_nickname     = result.5;
+
+                            if let Some(device_id) = device_id {
+                                profile.devices.push((device_id, device_nickname.unwrap()));
+                            }
+                        }
+
+                        HttpResponse::Ok().body(profile.render().unwrap())
+                    })
+                .map_err(
+                    |err| {
+                        error!("{}", err);
+                        HttpResponse::InternalServerError().finish()
+                    }).unwrap()
 }
 
 #[derive(Template)] 
@@ -109,7 +126,7 @@ async fn create_user (
             .values(&new_user)
             .execute(&conn))
                 .await
-                .map(|_| HttpResponse::Ok().finish())
+                .map(|_| HttpResponse::SeeOther().header(http::header::LOCATION, "/users").finish())
                 .map_err(
                     |err| {
                         error!("{}", err);

@@ -3,12 +3,10 @@ use serde_json::json;
 use log::{info};
 use askama::Template;
 
-use crate::network;
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
-    .service(index)
-    .service(getmac);
+    .service(index);
 }
 
 #[derive(Template)] 
@@ -21,10 +19,4 @@ struct IndexVals<'a> {
 pub async fn index() -> impl Responder {
     let name = IndexVals { name: "Gary" };
     HttpResponse::Ok().body(name.render().unwrap())
-}
-
-#[get("/getmac")]
-pub async fn getmac(req: HttpRequest) -> impl Responder {
-    // let ips_macs = network::parse_leases();
-    format!("{:?}", req.peer_addr().unwrap())
 }

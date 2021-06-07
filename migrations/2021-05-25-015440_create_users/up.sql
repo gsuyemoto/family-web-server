@@ -1,16 +1,17 @@
 CREATE TABLE users (
-    id INTEGER PRIMARY KEY NOT NULL,
-    name VARCHAR NOT NULL,
+    user_id INTEGER PRIMARY KEY NOT NULL,
+    name VARCHAR NOT NULL UNIQUE,
     points INTEGER NOT NULL,
     is_admin INTEGER NOT NULL
 );
 
 CREATE TABLE devices (
     id INTEGER PRIMARY KEY NOT NULL,
-    name VARCHAR NOT NULL,
-    addr_mac VARCHAR NOT NULL,
+    user_id INTEGER NOT NULL,
+    nickname VARCHAR NOT NULL,
+    addr_mac VARCHAR NOT NULL UNIQUE,
     addr_ip VARCHAR,
-    device VARCHAR,
+    manufacture_name VARCHAR,
     is_watching INTEGER NOT NULL,
-    watch_start VARCHAR
+    watch_start INTEGER
 );

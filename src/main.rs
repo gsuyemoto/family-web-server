@@ -23,6 +23,7 @@ use device_tracking::Device2Track;
 
 mod route_static;
 mod route_users;
+mod route_devices;
 mod errors;
 mod models;
 mod schema;
@@ -72,6 +73,7 @@ async fn main() -> std::io::Result<()> {
             .service(fs::Files::new("/assets", "./templates/assets"))
             .configure(route_users::configure)
             .configure(route_static::configure)
+            .configure(route_devices::configure)
     });
 
     // ListenFD to recompile with running server

@@ -27,8 +27,9 @@ impl Device2Track {
     }
 
     pub fn begin(&mut self) {
-        const time_to_check: u64        = 10;
-        const streaming_threshold: u64  = 500_000;
+        const TIME_TO_CHECK: u64        = 10;
+        const STREAMING_THRESHOLD: u64  = 500_000;
+
         let mut socket                  = RawSocket::new("br0".as_ref()).unwrap();
     
         loop {
@@ -46,9 +47,9 @@ impl Device2Track {
                 }
     
                 let elapsed_time = self.time.elapsed().as_secs();
-                if elapsed_time > time_to_check {
-                    if self.last_check > streaming_threshold &&
-                        self.last_last_check > streaming_threshold
+                if elapsed_time > TIME_TO_CHECK {
+                    if self.last_check > STREAMING_THRESHOLD &&
+                        self.last_last_check > STREAMING_THRESHOLD
                     {
                         self.is_streaming = true;
                     }

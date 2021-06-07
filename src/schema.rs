@@ -1,24 +1,26 @@
 table! {
     devices (id) {
         id -> Integer,
-        name -> Text,
+        user_id -> Integer,
+        nickname -> Text,
         addr_mac -> Text,
         addr_ip -> Nullable<Text>,
-        device -> Nullable<Text>,
+        manufacture_name -> Nullable<Text>,
         is_watching -> Integer,
-        watch_start -> Nullable<Text>,
+        watch_start -> Nullable<Integer>,
     }
 }
 
 table! {
-    users (id) {
-        id -> Integer,
+    users (user_id) {
+        user_id -> Integer,
         name -> Text,
         points -> Integer,
         is_admin -> Integer,
     }
 }
 
+joinable!(users -> devices (user_id));
 allow_tables_to_appear_in_same_query!(
     devices,
     users,

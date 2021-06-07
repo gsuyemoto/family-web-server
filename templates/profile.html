@@ -56,11 +56,19 @@
                     <h3 class="mt-4">Is this person an admin? {% if is_admin == 1 %}Yes{% else %}No{% endif %}</h3>
                     <hr class="dotted">
                     <h2 class="mt-4">{{ name }}'s Devices</h2>
+                    <table>
+                    {% for device in devices %}
+                        <tr>
+                            <td>{{ device.1 }}</td><td><input type="button" value="Remove"></td><td><input type="button" value="Block"></td>
+                        </tr>
+                    {% endfor %}
+                    </table>
                     <hr class="dotted">
                     <form name="add_device" action="/users/{{ name }}" method="post">
                         <label for="name">Name:</label><br>
-                        <input type="text" id="name" name="name"><br>
-                        <input type="button" onclick="validate()" class="btn btn-primary" value="Add This Device">
+                        <input type="text" id="nickname" name="nickname"><br>
+                        <input type="hidden" id="user_id" name="user_id" value={{ user_id }}><br>
+                        <input type="submit" class="btn btn-primary" value="Add This Device">
                     </form>
                 </div>
             </div>
