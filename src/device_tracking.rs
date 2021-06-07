@@ -15,7 +15,7 @@ pub struct Device2Track {
 }
 
 impl Device2Track {
-    pub fn new(mac: &str) -> Self {
+    pub fn new(mac: String) -> Self {
         Device2Track {
             mac: mac.parse::<EthernetAddress>().unwrap(),
             time: Instant::now(),

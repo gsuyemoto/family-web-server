@@ -1,12 +1,14 @@
 use crate::{models, Pool};
 use crate::schema::{users, devices};
 use crate::errors::AppError;
+use crate::device_tracking::Device2Track;
+use crate::network;
+use crate::TrackDevices;
 
 use actix_web::{get, post, web, http, Responder, HttpRequest, HttpResponse};
 use diesel::prelude::*;
 use askama::Template;
 use log::{info, error, debug};
-use crate::network;
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
@@ -24,14 +26,14 @@ async fn add_device (
     web::Path((name)): web::Path<(String)>,
     form: web::Form<FormNewDevice>,
     pool: web::Data<Pool>, 
+    all: web::Data<TrackDevices>,
     request: HttpRequest,
 ) -> HttpResponse {
 
-    let conn = pool
-                 .get()
-                 .expect("couldn't get db connection from pool");
+    let conn        = pool
+                        .get()
+                        .expect("couldn't get db connection from pool");
 
-    let ips_macs    = network::parse_leases();
     let ip          = request
                         .peer_addr()
                         .unwrap()
@@ -39,9 +41,7 @@ async fn add_device (
                         .to_string();
     debug!("ip: {}", ip);
 
-    let mac         = ips_macs
-                        .get(&ip)
-                        .unwrap();
+    let mac         = network::get_mac_from_ip(&ip).unwrap();
 
     debug!("mac: {}", mac);
 
@@ -49,12 +49,15 @@ async fn add_device (
     {
         nickname: form.nickname.clone(),
         user_id: form.user_id,
-        addr_mac: mac.to_string(),
+        addr_mac: mac.clone(),
         addr_ip: ip,
         is_watching: 0,
     };
 
     debug!("device: \n{:?}", new_device);
+
+    let mut device_list = &mut *all.devices.borrow_mut();
+    device_list.push( tokio::spawn(async move { Device2Track::new(mac.clone()).begin() }));
 
     web::block(move ||
         diesel::insert_into(devices::table)

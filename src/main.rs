@@ -6,11 +6,14 @@ extern crate serde_derive;
 use std::net::{SocketAddrV4, Ipv4Addr};
 use std::time::Duration;
 use std::env;
+use std::cell::RefCell;
 
 use log::{debug, error, log_enabled, info, Level};
 use dotenv::dotenv;
 use listenfd::ListenFd;
 use serde_json::json;
+
+use tokio::task::JoinHandle;
 use tokio;
 
 use actix_web::{web, get, middleware, App, HttpResponse, HttpServer};
@@ -18,8 +21,6 @@ use actix_files as fs;
 
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
-
-use device_tracking::Device2Track;
 
 mod route_static;
 mod route_users;
@@ -31,6 +32,10 @@ mod device_tracking;
 mod network;
 
 type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
+
+pub struct TrackDevices {
+    devices: RefCell<Vec<JoinHandle<()>>>,
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -67,6 +72,7 @@ async fn main() -> std::io::Result<()> {
     let mut server = HttpServer::new(move || {
         App::new()
             .data(pool.clone())
+            .data( TrackDevices { devices: RefCell::new( Vec::new() ) } )
             .wrap(middleware::Logger::default())
             .service(fs::Files::new("/js", "./templates/js"))
             .service(fs::Files::new("/css", "./templates/css"))
