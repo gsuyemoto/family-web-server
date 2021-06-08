@@ -17,4 +17,6 @@ pub struct NewDevice {
     pub addr_mac: String,
     pub addr_ip: String,
     pub is_watching: i32,
+    pub is_blocked: i32,
+    pub is_tracked: i32,
 }

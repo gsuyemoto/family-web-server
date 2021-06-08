@@ -7,6 +7,8 @@ table! {
         addr_ip -> Nullable<Text>,
         manufacture_name -> Nullable<Text>,
         is_watching -> Integer,
+        is_blocked -> Integer,
+        is_tracked -> Integer,
         watch_start -> Nullable<Integer>,
     }
 }

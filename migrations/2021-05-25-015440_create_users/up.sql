@@ -13,5 +13,7 @@ CREATE TABLE devices (
     addr_ip VARCHAR,
     manufacture_name VARCHAR,
     is_watching INTEGER NOT NULL,
+    is_blocked INTEGER NOT NULL,
+    is_tracked INTEGER NOT NULL,
     watch_start INTEGER
 );

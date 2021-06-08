@@ -22,6 +22,8 @@ use actix_files as fs;
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 
+use crate::device_tracking::DeviceTracking;
+
 mod route_static;
 mod route_users;
 mod route_devices;
@@ -33,20 +35,12 @@ mod network;
 
 type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 
-pub struct TrackDevices {
-    devices: RefCell<Vec<JoinHandle<()>>>,
-}
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
     env::set_var("RUST_LOG", "actix_web=info, debug");
     env_logger::init();
-
-    // let mut device1 = Device2Track::new("F6:FC:B4:5E:C8:2F");
-    // let mut device1 = Device2Track::new("ee:f1:3b:99:db:7f");
-    // tokio::spawn(async move { device1.begin() });
 
     let database_url = 
         env::var("DATABASE_URL")
@@ -69,10 +63,12 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Failed to create pool.");
 
+    let mut device_tracking = DeviceTracking::new(pool.clone());
+    tokio::spawn(async move { device_tracking.begin() });
+
     let mut server = HttpServer::new(move || {
         App::new()
             .data(pool.clone())
-            .data( TrackDevices { devices: RefCell::new( Vec::new() ) } )
             .wrap(middleware::Logger::default())
             .service(fs::Files::new("/js", "./templates/js"))
             .service(fs::Files::new("/css", "./templates/css"))
