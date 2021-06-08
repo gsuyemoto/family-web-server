@@ -1,13 +1,13 @@
 CREATE TABLE users (
     user_id INTEGER PRIMARY KEY NOT NULL,
     name VARCHAR NOT NULL UNIQUE,
-    points INTEGER NOT NULL,
+    points INTEGER NOT NULL 0 CHECK(points >= 0),
     is_admin INTEGER NOT NULL
 );
 
 CREATE TABLE devices (
     id INTEGER PRIMARY KEY NOT NULL,
-    user_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(user_id),
     nickname VARCHAR NOT NULL,
     addr_mac VARCHAR NOT NULL UNIQUE,
     addr_ip VARCHAR,

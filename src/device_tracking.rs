@@ -1,5 +1,5 @@
 use crate::{Pool};
-use crate::schema::{devices};
+use crate::schema::{devices, users};
 
 use std::time::{Instant, Duration};
 use std::os::unix::io::AsRawFd;
@@ -13,6 +13,7 @@ use tokio::task;
 use log::{error, debug};
 
 pub struct DeviceToTrack {
+    user_id:            i32,
     mac:                EthernetAddress,
     last_check:         u64,
     last_last_check:    u64,
@@ -39,41 +40,35 @@ impl DeviceTracking {
     }
 
     pub fn begin(&mut self) {
-        const CHECK_STREAMING: u64          = 10;
+        const CHECK_STREAMING: u64          = 30;
         const CHECK_FOR_NEW_DEVICE: u64     = 60 * 60; // check for new devices every hr
-        const STREAMING_THRESHOLD: u64      = 500_000;
+        const STREAMING_THRESHOLD: u64      = 1_000_000;
         let mut socket                      = RawSocket::new("br0".as_ref()).unwrap();
+        let conn                            = self.db
+                                                .get()
+                                                .expect("couldn't get db connection from pool");
              
         loop {
             let elapsed_new_device = self.check_new_devices.elapsed().as_secs();
             if self.devices_not_init || elapsed_new_device > CHECK_FOR_NEW_DEVICE {
-                // let devices_to_track = 
-                //     task::block_in_place(|| {
-                    // query DB to get all devices that need to be tracked
-                    let conn = 
-                        self.db
-                        .get()
-                        .expect("couldn't get db connection from pool");
-                        
-                    let devices_from_db = 
-                        devices::table
-                        .filter(devices::is_tracked.eq(1))
-                        .select(devices::addr_mac)
-                        .load::<String>(&conn)
-                            .map_err(|err| error!("Problem getting devices to track: {}", err))
-                            .unwrap();
+                    
+                let devices_from_db = 
+                    devices::table
+                    .filter(devices::is_tracked.eq(1))
+                    .select((devices::user_id, devices::addr_mac))
+                    .load::<(i32, String)>(&conn)
+                        .map_err(|err| error!("Problem getting devices to track: {}", err))
+                        .unwrap();
 
-                //     devices_from_db
-                // });
-
-                // iter through all devices from DB that are to be tracked
                 self.all_devices.clear();
                 for dev in devices_from_db {
-                    self.all_devices.push( DeviceToTrack {
-                        mac: dev.parse::<EthernetAddress>().unwrap(),
-                        last_check: 0,
-                        last_last_check: 0,
-                        is_watching: false,
+                    self.all_devices.push( 
+                        DeviceToTrack {
+                        user_id:            dev.0,
+                        mac:                dev.1.parse::<EthernetAddress>().unwrap(),
+                        last_check:         0,
+                        last_last_check:    0,
+                        is_watching:        false,
                     });
                 }
 
@@ -111,9 +106,33 @@ impl DeviceTracking {
                             {
                                 device.is_watching = true;
                                 debug!("{} --->  {}", device.mac, device.is_watching);
+
+                                let updated_row = diesel::update(
+                                    devices::table.filter(
+                                        devices::addr_mac.eq(device.mac.to_string())))
+                                        .set(devices::is_watching.eq(1))
+                                        .execute(&conn);
+
+                                debug!("Is watching: {:?}", updated_row);
+
+                                let updated_row = diesel::update(
+                                    users::table.filter(
+                                        users::user_id.eq(device.user_id)))
+                                        .set(users::points.eq(users::points - 1))
+                                        .execute(&conn);
+
+                                debug!("Update points: {:?}", updated_row);
                             }
                             else
                             {
+                                let updated_row = diesel::update(
+                                    devices::table.filter(
+                                        devices::addr_mac.eq(device.mac.to_string())))
+                                        .set(devices::is_watching.eq(0))
+                                        .execute(&conn);
+
+                                debug!("Not watchin: {:?}", updated_row);
+
                                 device.is_watching = false;
                             }
     
