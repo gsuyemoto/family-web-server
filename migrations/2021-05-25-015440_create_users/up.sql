@@ -1,7 +1,7 @@
 CREATE TABLE users (
     user_id INTEGER PRIMARY KEY NOT NULL,
     name VARCHAR NOT NULL UNIQUE,
-    points INTEGER NOT NULL 0 CHECK(points >= 0),
+    points INTEGER NOT NULL CHECK(points >= 0),
     is_admin INTEGER NOT NULL
 );
 

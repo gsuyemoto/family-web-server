@@ -22,7 +22,8 @@ table! {
     }
 }
 
-joinable!(users -> devices (user_id));
+joinable!(devices -> users (user_id));
+
 allow_tables_to_appear_in_same_query!(
     devices,
     users,
