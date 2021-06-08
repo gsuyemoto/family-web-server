@@ -10,7 +10,26 @@ use log::{info, error, debug};
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
+    .service(block_device)
     .service(add_device);
+}
+
+#[derive(Deserialize)]
+struct FormBlockDevice {
+    name: String,
+    ip: String,
+}
+
+#[post("/device")]
+async fn block_device (
+    form: web::Form<FormBlockDevice>,
+    pool: web::Data<Pool>, 
+) -> HttpResponse {
+    network::block_ip(form.ip.clone());
+
+    HttpResponse::SeeOther()
+        .header(http::header::LOCATION, format!("/users/{}", form.name))
+        .finish()
 }
 
 #[derive(Deserialize)]
@@ -40,7 +59,7 @@ async fn add_device (
 
     debug!("ip: {}", ip);
 
-    let mac         = network::get_mac_from_ip(&ip).unwrap();
+    let mac         = network::get_addr(Some(&ip), None).expect("Unable to find matching MAC to IP");
 
     debug!("mac: {}", mac);
 
