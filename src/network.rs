@@ -54,3 +54,13 @@ pub fn block_ip(ip: String) {
     ipt.insert("filter", "FORWARD", &rule1, 1).expect("Unable to set filter INPUT 1");
     ipt.insert("filter", "FORWARD", &rule2, 2).expect("Unable to set filter INPUT 2");
 }
+
+pub fn unblock_ip(ip: String) {
+    let ipt = iptables::new(false).unwrap();
+
+    let rule1 = format!("-d {} -j DROP", ip);
+    let rule2 = format!("-s {} -j DROP", ip);
+
+    ipt.delete("filter", "FORWARD", &rule1).expect("Unable to delete filter INPUT 1");
+    ipt.delete("filter", "FORWARD", &rule2).expect("Unable to delete filter INPUT 2");
+}

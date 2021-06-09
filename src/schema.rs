@@ -4,7 +4,7 @@ table! {
         user_id -> Integer,
         nickname -> Text,
         addr_mac -> Text,
-        addr_ip -> Nullable<Text>,
+        addr_ip -> Text,
         manufacture_name -> Nullable<Text>,
         is_watching -> Integer,
         is_blocked -> Integer,

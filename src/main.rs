@@ -10,7 +10,6 @@ use std::cell::RefCell;
 
 use log::{debug, error, log_enabled, info, Level};
 use dotenv::dotenv;
-use listenfd::ListenFd;
 use serde_json::json;
 
 use tokio::task::JoinHandle;
@@ -66,7 +65,7 @@ async fn main() -> std::io::Result<()> {
     let mut device_tracking = DeviceTracking::new(pool.clone());
     tokio::spawn(async move { device_tracking.begin() });
 
-    let mut server = HttpServer::new(move || {
+    HttpServer::new(move || {
         App::new()
             .data(pool.clone())
             .wrap(middleware::Logger::default())
@@ -76,20 +75,8 @@ async fn main() -> std::io::Result<()> {
             .configure(route_users::configure)
             .configure(route_static::configure)
             .configure(route_devices::configure)
-    });
-
-    // ListenFD to recompile with running server
-    // systemfd --no-pid -s http::5000 -- cargo watch -x run
-    let mut listenfd = ListenFd::from_env();
-
-    server = match listenfd.take_tcp_listener(0)? {
-        Some(listener) => server.listen(listener)?,
-        None => server.bind((ip, port))?,
-    };
-
-    server
-        .run()
-        .await?;
-
-    Ok(())
+    })
+    .bind("10.0.1.1:80")?
+    .run()
+    .await
 }

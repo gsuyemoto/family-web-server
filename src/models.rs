@@ -1,7 +1,7 @@
 use crate::schema::{users, devices};
 use diesel::prelude::*;
 
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(Insertable, Queryable, Deserialize, Debug)]
 #[table_name="users"]
 pub struct NewUser {
     pub name: String,
@@ -9,7 +9,7 @@ pub struct NewUser {
     pub is_admin: i32,
 }
 
-#[derive(Insertable, Deserialize, Debug)]
+#[derive(Insertable, Queryable, Deserialize, Debug)]
 #[table_name="devices"]
 pub struct NewDevice {
     pub user_id: i32,

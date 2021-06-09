@@ -20,12 +20,20 @@ struct FormBlockDevice {
     ip: String,
 }
 
-#[post("/device")]
+#[post("/device/{action}")]
 async fn block_device (
+    web::Path((action)): web::Path<(String)>,
     form: web::Form<FormBlockDevice>,
     pool: web::Data<Pool>, 
 ) -> HttpResponse {
-    network::block_ip(form.ip.clone());
+
+    debug!("Received action request: {}", action);
+    match action.as_ref() {
+        "block"     => network::block_ip(form.ip.clone()),
+        "unblock"   => network::unblock_ip(form.ip.clone()),
+        "remove"    => debug!("Remove request for device: {}", form.name),
+        _           => debug!("Unknown request for device: {}", form.name),
+    }
 
     HttpResponse::SeeOther()
         .header(http::header::LOCATION, format!("/users/{}", form.name))

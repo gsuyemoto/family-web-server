@@ -10,7 +10,7 @@ CREATE TABLE devices (
     user_id INTEGER NOT NULL REFERENCES users(user_id),
     nickname VARCHAR NOT NULL,
     addr_mac VARCHAR NOT NULL UNIQUE,
-    addr_ip VARCHAR,
+    addr_ip VARCHAR NOT NULL,
     manufacture_name VARCHAR,
     is_watching INTEGER NOT NULL,
     is_blocked INTEGER NOT NULL,

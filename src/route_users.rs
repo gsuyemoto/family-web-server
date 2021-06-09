@@ -21,7 +21,7 @@ pub struct UserProfile {
     pub name: String,
     pub points: i32,
     pub is_admin: i32,
-    pub devices: Vec<(i32, String)>,
+    pub devices: Vec<(i32, String, String)>,
 }
 
 #[get("/users/{name}")]
@@ -39,8 +39,8 @@ pub async fn user_profile (
             .filter(users::name.eq(name))
             .left_join(devices::table)
             .select((users::user_id, users::name, users::points, users::is_admin
-                     , devices::id.nullable(), devices::nickname.nullable()))
-            .load::<(i32, String, i32, i32, Option<i32>, Option<String>)>(&conn))
+                     , devices::id.nullable(), devices::nickname.nullable(), devices::addr_ip.nullable()))
+            .load::<(i32, String, i32, i32, Option<i32>, Option<String>, Option<String>)>(&conn))
                 .await
                 .map(
                     |results| {
@@ -55,11 +55,10 @@ pub async fn user_profile (
                         };
 
                         for result in results {
-                            let device_id           = result.4;
-                            let device_nickname     = result.5;
+                            let device_id = result.4;
 
                             if let Some(device_id) = device_id {
-                                profile.devices.push((device_id, device_nickname.unwrap()));
+                                profile.devices.push((device_id, result.5.unwrap(), result.6.unwrap()));
                             }
                         }
 

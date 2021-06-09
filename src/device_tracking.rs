@@ -1,5 +1,6 @@
 use crate::{Pool};
 use crate::schema::{devices, users};
+use crate::network;
 
 use std::time::{Instant, Duration};
 use std::os::unix::io::AsRawFd;
@@ -15,6 +16,7 @@ use log::{error, debug};
 pub struct DeviceToTrack {
     user_id:            i32,
     mac:                EthernetAddress,
+    ip:                 String, 
     last_check:         u64,
     last_last_check:    u64,
     is_watching:        bool,
@@ -55,8 +57,8 @@ impl DeviceTracking {
                 let devices_from_db = 
                     devices::table
                     .filter(devices::is_tracked.eq(1))
-                    .select((devices::user_id, devices::addr_mac))
-                    .load::<(i32, String)>(&conn)
+                    .select((devices::user_id, devices::addr_mac, devices::addr_ip))
+                    .load::<(i32, String, String)>(&conn)
                         .map_err(|err| error!("Problem getting devices to track: {}", err))
                         .unwrap();
 
@@ -66,6 +68,7 @@ impl DeviceTracking {
                         DeviceToTrack {
                         user_id:            dev.0,
                         mac:                dev.1.parse::<EthernetAddress>().unwrap(),
+                        ip:                 dev.2,
                         last_check:         0,
                         last_last_check:    0,
                         is_watching:        false,
@@ -113,15 +116,23 @@ impl DeviceTracking {
                                         .set(devices::is_watching.eq(1))
                                         .execute(&conn);
 
-                                debug!("Is watching: {:?}", updated_row);
-
                                 let updated_row = diesel::update(
                                     users::table.filter(
                                         users::user_id.eq(device.user_id)))
                                         .set(users::points.eq(users::points - 1))
                                         .execute(&conn);
 
-                                debug!("Update points: {:?}", updated_row);
+                                // CHECK IF USER HAS REACHED 0 POINTS!!
+                                // IF SO, BLOCK ALL DEVICES
+                                let points = users::table.filter(
+                                    users::user_id.eq(device.user_id))
+                                    .select(users::points)
+                                    .execute(&conn);
+
+                                if points.unwrap() == 0 {
+                                    debug!("Blocking device ip: {}", device.ip);
+                                    network::block_ip(device.ip.clone());
+                                }
                             }
                             else
                             {
