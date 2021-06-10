@@ -57,11 +57,13 @@
                     <hr class="dotted">
                     <h2 class="mt-4">{{ name }}'s Devices</h2>
                     <table>
+                    <form name="remove_device" action="/device/remove" method="post">
                     {% for device in devices %}
                         <tr>
-                            <td>{{ device.1 }}</td><td><input type="button" value="Remove"></td><td><input data-name="{{ name }}" data-ip="{{ device.2 }}" onclick="block(this)" type="button" value="Block"></td>
+                            <td>{{ device.1 }}</td><td><input type="hidden" name="name" value="{{ device.1 }}"><input type="hidden" name="id" value="{{ device.0 }}"><input type="submit" value="Remove"></td><td><input data-ip="{{ device.2 }}" onclick="block(this)" type="button" value="Block"></td>
                         </tr>
                     {% endfor %}
+                    </form>
                     </table>
                     <hr class="dotted">
                     <form name="add_device" action="/users/{{ name }}" method="post">
@@ -89,7 +91,6 @@
 
                 let action  = btn.getAttribute("value").toLowerCase();
                 let ip      = btn.getAttribute("data-ip");
-                let name    = btn.getAttribute("data-name");
 
                 if (action == "block") {
                     btn.setAttribute("value", "Unblock");
@@ -100,7 +101,7 @@
 
                 xhttp.open("POST", "/device/" + action, true);
                 xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-                xhttp.send("name=" + name + "&ip=" + ip);
+                xhttp.send("name={{ name }}&ip=" + ip);
             }
         </script>
     </body>

@@ -54,7 +54,7 @@
                     <h1 class="mt-4">My Family</h1>
                     <ul>
                     {% for name in names %}
-                    <li><a href="/users/{{ name }}">{{ name|e }}</a></li>
+                    <li><a href="/users/{{ name }}">{{ name }}</a></li>
                     {% endfor %}
                     </ul>
                     <hr class="dotted">
@@ -79,6 +79,7 @@
         <script src="js/scripts.js"></script>
         <script>
             function validate() {
+                // convert radio value of true or false to 1 or 0
                 console.log("validating form...");
                 if (document.getElementById("admin_yes").checked == true) {
                     document.getElementById("is_admin").value = 1;

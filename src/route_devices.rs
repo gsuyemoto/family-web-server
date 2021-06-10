@@ -10,8 +10,43 @@ use log::{info, error, debug};
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
+    .service(remove_device)
     .service(block_device)
     .service(add_device);
+}
+
+#[derive(Deserialize)]
+struct FormRemoveDevice {
+    name: String,
+    id: String,
+}
+
+#[post("/device/remove")]
+async fn remove_device (
+    form: web::Form<FormRemoveDevice>,
+    pool: web::Data<Pool>, 
+) -> HttpResponse {
+
+    let conn = pool
+                 .get()
+                 .expect("couldn't get db connection from pool");
+
+    let id = form.id.parse::<i32>().unwrap();
+    debug!("remove device: {}", form.id);
+
+    web::block(move ||
+        diesel::delete(devices::table.filter(devices::id.eq(id)))
+            .execute(&conn))
+                .await
+                .map(|_|
+                     HttpResponse::SeeOther()
+                     .header(http::header::LOCATION, format!("/users/{}", form.name))
+                     .finish())
+                .map_err(
+                    |err| {
+                        error!("{}", err);
+                        HttpResponse::InternalServerError().finish()
+                    }).unwrap()
 }
 
 #[derive(Deserialize)]
@@ -24,14 +59,12 @@ struct FormBlockDevice {
 async fn block_device (
     web::Path((action)): web::Path<(String)>,
     form: web::Form<FormBlockDevice>,
-    pool: web::Data<Pool>, 
 ) -> HttpResponse {
 
     debug!("Received action request: {}", action);
     match action.as_ref() {
         "block"     => network::block_ip(form.ip.clone()),
         "unblock"   => network::unblock_ip(form.ip.clone()),
-        "remove"    => debug!("Remove request for device: {}", form.name),
         _           => debug!("Unknown request for device: {}", form.name),
     }
 
@@ -79,7 +112,7 @@ async fn add_device (
         addr_ip: ip,
         is_watching: 0,
         is_blocked: 0,
-        is_tracked: form.is_admin,
+        is_tracked: form.is_admin ^ 1, // XOR bitwise op
     };
 
     debug!("device: \n{:?}", new_device);

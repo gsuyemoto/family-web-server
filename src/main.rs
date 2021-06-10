@@ -12,16 +12,13 @@ use log::{debug, error, log_enabled, info, Level};
 use dotenv::dotenv;
 use serde_json::json;
 
-use tokio::task::JoinHandle;
-use tokio;
+use tokio::task::{self, JoinHandle};
 
 use actix_web::{web, get, middleware, App, HttpResponse, HttpServer};
 use actix_files as fs;
 
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
-
-use crate::device_tracking::DeviceTracking;
 
 mod route_static;
 mod route_users;
@@ -62,8 +59,8 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Failed to create pool.");
 
-    let mut device_tracking = DeviceTracking::new(pool.clone());
-    tokio::spawn(async move { device_tracking.begin() });
+    let new_pool = pool.clone();
+    task::spawn(async move { device_tracking::begin_tracking(new_pool).await });
 
     HttpServer::new(move || {
         App::new()
