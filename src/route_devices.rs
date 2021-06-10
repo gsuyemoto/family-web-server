@@ -59,12 +59,29 @@ struct FormBlockDevice {
 async fn block_device (
     web::Path((action)): web::Path<(String)>,
     form: web::Form<FormBlockDevice>,
+    pool: web::Data<Pool>, 
 ) -> HttpResponse {
+
+    let conn = pool
+                 .get()
+                 .expect("couldn't get db connection from pool");
 
     debug!("Received action request: {}", action);
     match action.as_ref() {
-        "block"     => network::block_ip(form.ip.clone()),
-        "unblock"   => network::unblock_ip(form.ip.clone()),
+        "block"     => {
+            network::block_ip(form.ip.clone());
+            diesel::update(devices::table.filter(
+                    devices::addr_ip.eq(&form.ip)))
+                    .set(devices::is_blocked.eq(1))
+                    .execute(&conn);
+        },
+        "unblock"   => {
+            network::unblock_ip(form.ip.clone());
+            diesel::update(devices::table.filter(
+                    devices::addr_ip.eq(&form.ip)))
+                    .set(devices::is_blocked.eq(0))
+                    .execute(&conn);
+        },
         _           => debug!("Unknown request for device: {}", form.name),
     }
 
