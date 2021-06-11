@@ -37,7 +37,7 @@ pub async fn begin_tracking(db: Pool, rcv: Arc<Notify>) {
                                                     .expect("couldn't get db connection from pool");
     loop {
         // loop every 1 secs
-        let mut interval = interval(Duration::from_secs(1));
+        let mut interval = time::interval(Duration::from_secs(1));
         interval.tick().await;
 
         if all_devices.is_empty() || check_new_device.elapsed().as_secs() > CHECK_NEW_DEVICE {
@@ -45,9 +45,14 @@ pub async fn begin_tracking(db: Pool, rcv: Arc<Notify>) {
                 devices::table
                 .filter(devices::is_tracked.eq(1))
                 .select((devices::user_id, devices::addr_mac, devices::addr_ip))
-                .load::<(i32, String, String)>(&conn)
-                    .map_err(|err| error!("Problem getting devices to track: {}", err))
-                    .unwrap();
+                .load::<(i32, String, String)>(&conn);
+
+            if let Err(e) = devices_from_db {
+                error!("Problem getting devices to track: {}", e);
+                continue;
+            }
+
+            let devices_from_db = devices_from_db.unwrap();
 
             all_devices.clear();
             for dev in devices_from_db {

@@ -11,9 +11,8 @@ CREATE TABLE devices (
     nickname VARCHAR NOT NULL,
     addr_mac VARCHAR NOT NULL UNIQUE,
     addr_ip VARCHAR NOT NULL,
-    manufacture_name VARCHAR,
+    manufacturer_name VARCHAR,
     is_watching INTEGER NOT NULL,
     is_blocked INTEGER NOT NULL,
-    is_tracked INTEGER NOT NULL,
-    watch_start INTEGER
+    is_tracked INTEGER NOT NULL
 );

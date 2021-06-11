@@ -5,11 +5,10 @@ table! {
         nickname -> Text,
         addr_mac -> Text,
         addr_ip -> Text,
-        manufacture_name -> Nullable<Text>,
+        manufacturer_name -> Nullable<Text>,
         is_watching -> Integer,
         is_blocked -> Integer,
         is_tracked -> Integer,
-        watch_start -> Nullable<Integer>,
     }
 }
 

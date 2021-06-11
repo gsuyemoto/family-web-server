@@ -14,8 +14,39 @@ use std::sync::Arc;
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
     .service(remove_device)
+    .service(show_devices)
     .service(block_device)
     .service(add_device);
+}
+
+#[derive(Template)] 
+#[template(path = "devices.html")] 
+struct GetDevices {
+    devices: Vec<models::NewDevice>,
+}
+
+#[get("/devices")]
+async fn show_devices (
+    pool: web::Data<Pool>, 
+) -> HttpResponse {
+
+    let conn = pool
+                 .get()
+                 .expect("couldn't get db connection from pool");
+
+    web::block(move ||
+        devices::table.load::<models::NewDevice>(&conn))
+        .await
+        .map(
+            |devices| {
+                let list = GetDevices { devices };
+                HttpResponse::Ok().body(list.render().unwrap())
+            })
+        .map_err(
+            |err| {
+                error!("{}", err);
+                HttpResponse::InternalServerError().finish()
+            }).unwrap()
 }
 
 #[derive(Deserialize)]
@@ -127,10 +158,12 @@ async fn add_device (
 
     let new_device  = models::NewDevice
     {
+        id: 0,
         nickname: form.nickname.clone(),
         user_id: form.user_id,
         addr_mac: mac.clone(),
         addr_ip: ip,
+        manufacturer_name: None,
         is_watching: 0,
         is_blocked: 0,
         is_tracked: form.is_admin ^ 1, // XOR bitwise op
