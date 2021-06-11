@@ -52,11 +52,11 @@
                 <!-- Page content-->
                 <div class="container-fluid">
                     <h1 class="mt-4">My Family</h1>
-                    <ul>
-                    {% for name in names %}
-                    <li><a href="/users/{{ name }}">{{ name }}</a></li>
+                    <table>
+                    {% for user in users %}
+                    <tr><td width="100px"><a href="/users/{{ user.0 }}">{{ user.0 }}</a></td><td width="100px">Points: {{ user.1 }}</td></tr>
                     {% endfor %}
-                    </ul>
+                    </table>
                     <hr class="dotted">
                     <form name="user_create" action="/users" method="post">
                         <label for="name">Name:</label><br>

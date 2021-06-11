@@ -8,7 +8,9 @@ use smoltcp::wire::{EthernetAddress, PrettyPrinter, EthernetFrame, TcpPacket, Ip
 
 use tokio::task;
 use tokio::time::{self, interval, Instant, Duration};
+use tokio::sync::Notify;
 
+use std::sync::{Arc};
 use std::os::unix::io::AsRawFd;
 use diesel::prelude::*;
 use log::{error, debug};
@@ -22,24 +24,23 @@ struct DeviceToTrack {
     is_watching:        bool,
 }
 
-pub async fn begin_tracking(db: Pool) {
+pub async fn begin_tracking(db: Pool, rcv: Arc<Notify>) {
     
-    const CHECK_STREAMING: u64          = 30;
-    const CHECK_FOR_NEW_DEVICE: u64     = 60 * 60; // check for new devices every hr
-    const STREAMING_THRESHOLD: u64      = 1_000_000;
-    let mut socket                      = RawSocket::new("br0".as_ref()).unwrap();
+    const CHECK_THROUGHPUT: u64         = 10;
+    const CHECK_NEW_DEVICE: u64         = 60 * 5; // check for new devices every 5min
+    const THROUGHPUT_THRESHOLD: u64     = 9_000;
+
     let mut all_devices: Vec<DeviceToTrack>     = Vec::new();
-    let mut interval                            = interval(Duration::from_secs(CHECK_STREAMING));
-    let mut check_new_devices                   = Instant::now();
-    let mut check_streaming                     = Instant::now();
-    let mut devices_not_init                    = true;
+    let mut check_new_device                    = Instant::now();
     let conn                                    = db
                                                     .get()
                                                     .expect("couldn't get db connection from pool");
     loop {
-        let elapsed_new_device = check_new_devices.elapsed().as_secs();
-        if devices_not_init || elapsed_new_device > CHECK_FOR_NEW_DEVICE {
-                
+        // loop every 1 secs
+        let mut interval = interval(Duration::from_secs(1));
+        interval.tick().await;
+
+        if all_devices.is_empty() || check_new_device.elapsed().as_secs() > CHECK_NEW_DEVICE {
             let devices_from_db = 
                 devices::table
                 .filter(devices::is_tracked.eq(1))
@@ -62,18 +63,26 @@ pub async fn begin_tracking(db: Pool) {
             }
 
             // reset time to check for new devices
-            check_new_devices  = Instant::now();
-            devices_not_init   = false;
+            check_new_device  = Instant::now();
         }
+            
+        if all_devices.is_empty() {
+            debug!("No devices to track. Waiting for more to be added.");
+            rcv.notified().await;
+            debug!("Received notification more devices were added.");
+            continue;
+        }
+        
+        let mut check_throughput    = Instant::now();
 
-        // ONLY TRACK DEVICES IF THERE ARE DEVICES TO TRACK
-        if all_devices.len() > 0 {
+        loop {
+            let mut socket = RawSocket::new("br0".as_ref()).unwrap();
             phy_wait(socket.as_raw_fd(), None).unwrap();
             let (rx_token, _) = socket.receive().unwrap();
 
-            rx_token.consume(smoltcp::time::Instant::now(), |buffer| {
+            rx_token.consume(smoltcp::time::Instant::now(), |single_packet| {
 
-                let frame = EthernetFrame::new_unchecked(&buffer);
+                let frame = EthernetFrame::new_unchecked(&single_packet);
                 if frame.ethertype() == EthernetProtocol::Ipv4 
                 {
                     for device in &mut all_devices {
@@ -85,62 +94,63 @@ pub async fn begin_tracking(db: Pool) {
                         }
                     }
                 }
-    
-                let elapsed_streaming = check_streaming.elapsed().as_secs();
-                if elapsed_streaming > CHECK_STREAMING 
-                {
-                    for device in &mut all_devices {
-                        if device.last_check > STREAMING_THRESHOLD &&
-                            device.last_last_check > STREAMING_THRESHOLD
-                        {
-                            device.is_watching = true;
-                            debug!("{} --->  {}", device.mac, device.is_watching);
 
-                            let updated_row = diesel::update(
-                                devices::table.filter(
-                                    devices::addr_mac.eq(device.mac.to_string())))
-                                    .set(devices::is_watching.eq(1))
-                                    .execute(&conn);
-
-                            let updated_row = diesel::update(
-                                users::table.filter(
-                                    users::user_id.eq(device.user_id)))
-                                    .set(users::points.eq(users::points - 1))
-                                    .execute(&conn);
-
-                            // CHECK IF USER HAS REACHED 0 POINTS!!
-                            // IF SO, BLOCK ALL DEVICES
-                            let points = users::table.filter(
-                                users::user_id.eq(device.user_id))
-                                .select(users::points)
-                                .execute(&conn);
-
-                            if points.unwrap() == 0 {
-                                debug!("Blocking device ip: {}", device.ip);
-                                network::block_ip(device.ip.clone());
-                            }
-                        }
-                        else
-                        {
-                            let updated_row = diesel::update(
-                                devices::table.filter(
-                                    devices::addr_mac.eq(device.mac.to_string())))
-                                    .set(devices::is_watching.eq(0))
-                                    .execute(&conn);
-
-                            debug!("Not watchin: {:?}", updated_row);
-
-                            device.is_watching = false;
-                        }
-    
-                        device.last_last_check      = device.last_check;
-                        device.last_check           = 0;
-                        check_streaming        = Instant::now();
-                    }
-                }
-    
                 Ok(())
             }).unwrap();
+
+            if check_throughput.elapsed().as_secs() > CHECK_THROUGHPUT 
+            {
+                for device in &mut all_devices {
+                    if device.last_check > THROUGHPUT_THRESHOLD &&
+                        device.last_last_check > THROUGHPUT_THRESHOLD
+                    {
+                        device.is_watching = true;
+                        debug!("{} --->  {}", device.mac, device.is_watching);
+
+                        let updated_row = diesel::update(
+                            devices::table.filter(
+                                devices::addr_mac.eq(device.mac.to_string())))
+                                .set(devices::is_watching.eq(1))
+                                .execute(&conn);
+
+                        let updated_row = diesel::update(
+                            users::table.filter(
+                                users::user_id.eq(device.user_id)))
+                                .set(users::points.eq(users::points - 1))
+                                .execute(&conn);
+
+                        // CHECK IF USER HAS REACHED 0 POINTS!!
+                        // IF SO, BLOCK ALL DEVICES
+                        let points = users::table.filter(
+                            users::user_id.eq(device.user_id))
+                            .select(users::points)
+                            .execute(&conn);
+
+                        if points.unwrap() == 0 {
+                            debug!("Blocking device ip: {}", device.ip);
+                            network::block_ip(device.ip.clone());
+                        }
+                    }
+                    else
+                    {
+                        let updated_row = diesel::update(
+                            devices::table.filter(
+                                devices::addr_mac.eq(device.mac.to_string())))
+                                .set(devices::is_watching.eq(0))
+                                .execute(&conn);
+
+                        debug!("Not watching: {}", device.last_check);
+
+                        device.is_watching = false;
+                    }
+    
+                    device.last_last_check      = device.last_check;
+                    device.last_check           = 0;
+                    check_throughput            = Instant::now();
+                }
+
+                break;
+            }
         }
     }
 }

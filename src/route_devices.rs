@@ -8,6 +8,9 @@ use diesel::prelude::*;
 use askama::Template;
 use log::{info, error, debug};
 
+use tokio::sync::Notify;
+use std::sync::Arc;
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
     .service(remove_device)
@@ -102,6 +105,7 @@ async fn add_device (
     web::Path((name)): web::Path<(String)>,
     form: web::Form<FormNewDevice>,
     pool: web::Data<Pool>, 
+    notify: web::Data<Arc<Notify>>, 
     request: HttpRequest,
 ) -> HttpResponse {
 
@@ -133,6 +137,7 @@ async fn add_device (
     };
 
     debug!("device: \n{:?}", new_device);
+    notify.notify(); // let device tracking thread know that a device was added
 
     web::block(move ||
         diesel::insert_into(devices::table)

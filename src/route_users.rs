@@ -10,8 +10,42 @@ use log::{info, error, debug};
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
     .service(create_user)
+    .service(user_points)
     .service(user_profile)
     .service(get_users);
+}
+
+#[derive(Deserialize)]
+struct FormPoints {
+    user_id: i32,
+    points: i32,
+}
+
+#[post("/user/points")]
+pub async fn user_points (
+    form: web::Form<FormPoints>,
+    pool: web::Data<Pool>,
+) -> HttpResponse {
+
+    let pts = form.points;
+    let conn = pool
+                 .get()
+                 .expect("couldn't get db connection from pool");
+
+    web::block(move ||
+        diesel::update(users::table.filter(
+            users::user_id.eq(form.user_id)))
+            .set(users::points.eq(users::points + form.points))
+            .execute(&conn))
+                .await
+                .map(|_| { 
+                    debug!("Successfully changed points: {}", pts);
+                    HttpResponse::Ok().finish()
+                })
+                .map_err(|err| {
+                    error!("Error updating points: {}", err);
+                    HttpResponse::InternalServerError().finish()
+                }).unwrap()
 }
 
 #[derive(Template)]
@@ -90,7 +124,7 @@ pub async fn user_profile (
 #[derive(Template)] 
 #[template(path = "users.html")] 
 struct GetUsers {
-    names: Vec<String>,
+    users: Vec<(String, i32)>,
 }
 
 #[get("/users")]
@@ -103,11 +137,11 @@ pub async fn get_users(
                  .expect("couldn't get db connection from pool");
 
     web::block(move ||
-        users::table.select(users::name).load::<String>(&conn))
+        users::table.select((users::name, users::points)).load::<(String, i32)>(&conn))
         .await
         .map(
-            |names| {
-                let list = GetUsers { names };
+            |users| {
+                let list = GetUsers { users };
                 HttpResponse::Ok().body(list.render().unwrap())
             })
         .map_err(

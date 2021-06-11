@@ -52,15 +52,17 @@
                 <!-- Page content-->
                 <div class="container-fluid">
                     <h1 class="mt-4">{{ name }}'s Profile</h1>
-                    <h3 class="mt-4">Number of points: {{ points }}</h3>
-                    <h3 class="mt-4">Is this person an admin? {% if is_admin == 1 %}Yes{% else %}No{% endif %}</h3>
+                        <table>
+                            <tr><td width="250px">Number of points: {{ points }}</td><td><input onclick="points('add')" type="button" value="Add 10"></td><td><input onclick="points('sub')" type="button" value="Subtract 10"></td></tr>
+                            <tr><td>Is this person an admin? {% if is_admin == 1 %}Yes{% else %}No{% endif %}</td><td colspan="2"><input type="button" value="Make Admin"></td></tr>
+                    </table>
                     <hr class="dotted">
                     <h2 class="mt-4">{{ name }}'s Devices</h2>
                     <table>
                     <form name="remove_device" action="/device/remove" method="post">
                     {% for device in devices %}
                         <tr>
-                            <td>{{ device.1 }}</td><td><input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="id" value="{{ device.0 }}"><input type="submit" value="Remove"></td><td><input data-ip="{{ device.2 }}" onclick="block(this)" type="button" value="{% if device.3 == 1 %}Unblock{% else %}Block{% endif %}"></td>
+                            <td width="100px">{{ device.1 }}</td><td><input type="hidden" name="name" value="{{ name }}"><input type="hidden" name="id" value="{{ device.0 }}"><input type="submit" value="Remove"></td><td><input data-ip="{{ device.2 }}" onclick="block(this)" type="button" value="{% if device.3 == 1 %}Unblock{% else %}Block{% endif %}"></td>
                         </tr>
                     {% endfor %}
                     </form>
@@ -81,13 +83,30 @@
         <!-- Core theme JS-->
         <script src="/js/scripts.js"></script>
         <script>
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    console.log("finished request");
+                    location.reload();
+                }
+            };
+
+            function points(action) {
+                var points = 0;
+
+                if (action == "add") {
+                    points = 10;
+                }
+                else {
+                    points = -10;
+                }
+
+                xhttp.open("POST", "/user/points", true);
+                xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+                xhttp.send("user_id={{ user_id }}&points=" + points);
+            }
+
             function block(btn) {
-                var xhttp = new XMLHttpRequest();
-                xhttp.onreadystatechange = function() {
-                    if (this.readyState == 4 && this.status == 200) {
-                        console.log("finished block request");
-                    }
-                };
 
                 let action  = btn.getAttribute("value").toLowerCase();
                 let ip      = btn.getAttribute("data-ip");

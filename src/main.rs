@@ -7,12 +7,14 @@ use std::net::{SocketAddrV4, Ipv4Addr};
 use std::time::Duration;
 use std::env;
 use std::cell::RefCell;
+use std::sync::Arc;
 
 use log::{debug, error, log_enabled, info, Level};
 use dotenv::dotenv;
 use serde_json::json;
 
 use tokio::task::{self, JoinHandle};
+use tokio::sync::Notify;
 
 use actix_web::{web, get, middleware, App, HttpResponse, HttpServer};
 use actix_files as fs;
@@ -33,6 +35,7 @@ type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    sudo::escalate_if_needed().expect("Unable to escalate to sudo");
     dotenv().ok();
 
     env::set_var("RUST_LOG", "actix_web=info, debug");
@@ -59,12 +62,16 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Failed to create pool.");
 
-    let new_pool = pool.clone();
-    task::spawn(async move { device_tracking::begin_tracking(new_pool).await });
+    let notify      = Arc::new(Notify::new());
+    let notify_rcv  = notify.clone();
+    let db          = pool.clone();
+
+    task::spawn(async move { device_tracking::begin_tracking(db, notify_rcv).await });
 
     HttpServer::new(move || {
         App::new()
             .data(pool.clone())
+            .data(notify.clone())
             .wrap(middleware::Logger::default())
             .service(fs::Files::new("/js", "./templates/js"))
             .service(fs::Files::new("/css", "./templates/css"))
