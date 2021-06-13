@@ -1,4 +1,4 @@
-use crate::{models, Pool};
+use crate::{models, network, Pool};
 use crate::schema::{users, devices};
 use crate::errors::AppError;
 
@@ -17,8 +17,9 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 
 #[derive(Deserialize)]
 struct FormPoints {
-    user_id: i32,
-    points: i32,
+    user_id:    i32,
+    old_pts:    i32,
+    new_pts:    i32,
 }
 
 #[post("/user/points")]
@@ -27,25 +28,44 @@ pub async fn user_points (
     pool: web::Data<Pool>,
 ) -> HttpResponse {
 
-    let pts = form.points;
     let conn = pool
                  .get()
                  .expect("couldn't get db connection from pool");
 
-    web::block(move ||
         diesel::update(users::table.filter(
             users::user_id.eq(form.user_id)))
-            .set(users::points.eq(users::points + form.points))
-            .execute(&conn))
-                .await
-                .map(|_| { 
-                    debug!("Successfully changed points: {}", pts);
-                    HttpResponse::Ok().finish()
-                })
+            .set(users::points.eq(form.new_pts))
+            .execute(&conn)
+            .map_err(|err| {
+                error!("Error updating points: {}", err);
+                HttpResponse::InternalServerError().finish()
+            });
+
+        if form.old_pts == 0 && form.new_pts > 0 {
+            let blocked_devices = devices::table.filter(
+                devices::user_id.eq(form.user_id))
+                .load::<models::Device>(&conn)
                 .map_err(|err| {
-                    error!("Error updating points: {}", err);
+                    error!("Error getting list of blocked devices: {}", err);
                     HttpResponse::InternalServerError().finish()
-                }).unwrap()
+                }).unwrap();
+
+            for dev in blocked_devices {
+                if dev.is_blocked == 1 {
+                    network::unblock_ip(&dev.addr_ip);
+                }
+            }
+            
+            diesel::update(devices::table.filter(
+                    devices::user_id.eq(form.user_id)))
+                    .set(devices::is_blocked.eq(0))
+                    .execute(&conn)
+                    .map_err(|err| {
+                        error!("Error updating status of blocked devices: {}", err);
+                        HttpResponse::InternalServerError().finish()
+                    });
+        }
+    HttpResponse::Ok().finish()
 }
 
 #[derive(Template)]

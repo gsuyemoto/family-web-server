@@ -1,5 +1,6 @@
 extern crate iptables;
 
+use crate::models;
 use iptables::error::IptablesError;
 use std::fs;
 
@@ -45,17 +46,20 @@ pub fn get_addr(ip: Option<&str>, mac: Option<&str>) -> Option<String> {
     None
 }
 
-pub fn block_ip(ip: String) {
-    let ipt = iptables::new(false).unwrap();
+pub fn block_ip(ip: &str) {
+    let ipt     = iptables::new(false).unwrap();
 
-    let rule1 = format!("-d {} -j DROP", ip);
-    let rule2 = format!("-s {} -j DROP", ip);
-
-    ipt.insert("filter", "FORWARD", &rule1, 1).expect("Unable to set filter INPUT 1");
-    ipt.insert("filter", "FORWARD", &rule2, 2).expect("Unable to set filter INPUT 2");
+    let rule1   = format!("-d {} -j DROP", ip);
+    let rule2   = format!("-s {} -j DROP", ip);
+    let exists  = ipt.exists("filter", "FORWARD", &rule1).unwrap();
+    
+    if !exists {
+        ipt.insert("filter", "FORWARD", &rule1, 1).expect("Unable to set filter INPUT 1");
+        ipt.insert("filter", "FORWARD", &rule2, 2).expect("Unable to set filter INPUT 2");
+    }
 }
 
-pub fn unblock_ip(ip: String) {
+pub fn unblock_ip(ip: &str) {
     let ipt = iptables::new(false).unwrap();
 
     let rule1 = format!("-d {} -j DROP", ip);

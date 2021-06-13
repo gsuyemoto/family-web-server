@@ -11,8 +11,10 @@ CREATE TABLE devices (
     nickname VARCHAR NOT NULL,
     addr_mac VARCHAR NOT NULL UNIQUE,
     addr_ip VARCHAR NOT NULL,
-    manufacturer_name VARCHAR,
     is_watching INTEGER NOT NULL,
     is_blocked INTEGER NOT NULL,
-    is_tracked INTEGER NOT NULL
+    is_tracked INTEGER NOT NULL,
+    last_checked INTEGER NOT NULL,
+    last_last_checked INTEGER NOT NULL,
+    manufacturer_name VARCHAR
 );

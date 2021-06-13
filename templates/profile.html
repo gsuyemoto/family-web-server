@@ -53,7 +53,7 @@
                 <div class="container-fluid">
                     <h1 class="mt-4">{{ name }}'s Profile</h1>
                         <table>
-                            <tr><td width="250px">Number of points: {{ points }}</td><td><input onclick="points('add')" type="button" value="Add 10"></td><td><input onclick="points('sub')" type="button" value="Subtract 10"></td></tr>
+                            <tr><td width="250px">Number of points: {{ points }}</td><td><input onclick="points('10')" type="button" value="Add 10"></td><td><input onclick="points('-10')" type="button" value="Subtract 10"></td></tr>
                             <tr><td>Is this person an admin? {% if is_admin == 1 %}Yes{% else %}No{% endif %}</td><td colspan="2"><input type="button" value="Make Admin"></td></tr>
                     </table>
                     <hr class="dotted">
@@ -91,19 +91,14 @@
                 }
             };
 
-            function points(action) {
-                var points = 0;
+            function points(add_or_subtract) {
+                var pts = {{ points }} + parseInt(add_or_subtract);
 
-                if (action == "add") {
-                    points = 10;
+                if (pts >= 0) {
+                    xhttp.open("POST", "/user/points", true);
+                    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+                    xhttp.send("user_id={{ user_id }}&old_pts={{ points }}&new_pts=" + pts);
                 }
-                else {
-                    points = -10;
-                }
-
-                xhttp.open("POST", "/user/points", true);
-                xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-                xhttp.send("user_id={{ user_id }}&points=" + points);
             }
 
             function block(btn) {

@@ -22,7 +22,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 #[derive(Template)] 
 #[template(path = "devices.html")] 
 struct GetDevices {
-    devices: Vec<models::NewDevice>,
+    devices: Vec<models::Device>,
 }
 
 #[get("/devices")]
@@ -35,7 +35,7 @@ async fn show_devices (
                  .expect("couldn't get db connection from pool");
 
     web::block(move ||
-        devices::table.load::<models::NewDevice>(&conn))
+        devices::table.load::<models::Device>(&conn))
         .await
         .map(
             |devices| {
@@ -103,14 +103,14 @@ async fn block_device (
     debug!("Received action request: {}", action);
     match action.as_ref() {
         "block"     => {
-            network::block_ip(form.ip.clone());
+            network::block_ip(&form.ip);
             diesel::update(devices::table.filter(
                     devices::addr_ip.eq(&form.ip)))
                     .set(devices::is_blocked.eq(1))
                     .execute(&conn);
         },
         "unblock"   => {
-            network::unblock_ip(form.ip.clone());
+            network::unblock_ip(&form.ip);
             diesel::update(devices::table.filter(
                     devices::addr_ip.eq(&form.ip)))
                     .set(devices::is_blocked.eq(0))
@@ -156,17 +156,19 @@ async fn add_device (
 
     debug!("mac: {}", mac);
 
-    let new_device  = models::NewDevice
+    let new_device  = models::Device
     {
         id: 0,
         nickname: form.nickname.clone(),
         user_id: form.user_id,
         addr_mac: mac.clone(),
         addr_ip: ip,
-        manufacturer_name: None,
         is_watching: 0,
         is_blocked: 0,
         is_tracked: form.is_admin ^ 1, // XOR bitwise op
+        manufacturer_name: None,
+        last_checked: 0,
+        last_last_checked: 0,
     };
 
     debug!("device: \n{:?}", new_device);
