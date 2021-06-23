@@ -156,9 +156,8 @@ async fn add_device (
 
     debug!("mac: {}", mac);
 
-    let new_device  = models::Device
+    let new_device  = models::NewDevice
     {
-        id: 0,
         nickname: form.nickname.clone(),
         user_id: form.user_id,
         addr_mac: mac.clone(),
