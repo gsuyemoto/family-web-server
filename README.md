@@ -7,11 +7,11 @@ Which I had running on Nvidia Jetson Nano Jetson 2GB so that I could eventually 
 
 Hidden file .env holds DB and server settings.
 
-You will need Sqlite installed on the server (I used Sqlite3):
+You will need Sqlite installed on the server (I used Sqlite3):<br/>
 <code>sudo apt-get install sqlite3</code>
 
-You will need Diesel CLI installed:
+You will need Diesel CLI installed:<br/>
 <code>cargo install diesel_cli --no-default-features --features sqlite</code>
 
-Then run diesel migration in order to set up the Sqlite DB:
+Then run diesel migration in order to set up the Sqlite DB:<br/>
 <code>diesel migration run</code> 
