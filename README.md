@@ -4,3 +4,14 @@ This project is conjuction with a custom router created with:
 https://github.com/gsuyemoto/router-ubuntu-image
 
 Which I had running on Nvidia Jetson Nano Jetson 2GB so that I could eventually run computer vision and ML on router... eventually.
+
+Hidden file .env holds DB and server settings.
+
+You will need Sqlite installed on the server (I used Sqlite3):
+<code>sudo apt-get install sqlite3</code>
+
+You will need Diesel CLI installed:
+<code>cargo install diesel_cli --no-default-features --features sqlite</code>
+
+Then run diesel migration in order to set up the Sqlite DB:
+<code>diesel migration run</code> 

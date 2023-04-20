@@ -1,4 +1,6 @@
-table! {
+// @generated automatically by Diesel CLI.
+
+diesel::table! {
     devices (id) {
         id -> Integer,
         user_id -> Integer,
@@ -14,7 +16,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     users (user_id) {
         user_id -> Integer,
         name -> Text,
@@ -23,9 +25,9 @@ table! {
     }
 }
 
-joinable!(devices -> users (user_id));
+diesel::joinable!(devices -> users (user_id));
 
-allow_tables_to_appear_in_same_query!(
+diesel::allow_tables_to_appear_in_same_query!(
     devices,
     users,
 );

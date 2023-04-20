@@ -33,6 +33,9 @@ mod network;
 
 type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 
+// static SERVER_IP: &'static str = "10.0.1.1:80";
+static SERVER_IP: &'static str = "0.0.0.0:8090"; // for testing local dev
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     sudo::escalate_if_needed().expect("Unable to escalate to sudo");
@@ -80,7 +83,7 @@ async fn main() -> std::io::Result<()> {
             .configure(route_static::configure)
             .configure(route_devices::configure)
     })
-    .bind("10.0.1.1:80")?
+    .bind(SERVER_IP)?
     .run()
     .await
 }
