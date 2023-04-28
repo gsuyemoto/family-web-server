@@ -3,11 +3,10 @@ use crate::schema::{devices, users};
 
 use smoltcp::phy::wait as phy_wait;
 use smoltcp::phy::{Device, RxToken, RawSocket};
-use smoltcp::wire::{EthernetAddress, PrettyPrinter, EthernetFrame, TcpPacket, Ipv4Packet, IpProtocol, EthernetProtocol};
+use smoltcp::wire::{EthernetAddress, EthernetFrame, Ipv4Packet, EthernetProtocol};
 use smoltcp::Error;
 
-use tokio::task;
-use tokio::time::{self, interval, Instant, Duration};
+use tokio::time::{self, Instant, Duration};
 use tokio::sync::Notify;
 
 use std::sync::{Arc};
@@ -162,15 +161,5 @@ pub async fn begin_tracking(db: Pool, rcv: Arc<Notify>) {
                 break;
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::thread;
-
-    #[test]
-    fn a_test() {
     }
 }

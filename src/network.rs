@@ -1,7 +1,5 @@
 extern crate iptables;
 
-use crate::models;
-use iptables::error::IptablesError;
 use std::fs;
 
 pub fn get_addr(ip: Option<&str>, mac: Option<&str>) -> Option<String> {

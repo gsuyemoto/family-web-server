@@ -1,8 +1,5 @@
-use actix_web::{get, post, web, Responder, HttpResponse, HttpRequest};
-use serde_json::json;
-use log::{info};
+use actix_web::{get, web, Responder, HttpResponse};
 use askama::Template;
-
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg

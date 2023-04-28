@@ -1,12 +1,11 @@
 use crate::{models, Pool};
-use crate::schema::{users, devices};
-use crate::errors::AppError;
+use crate::schema::{devices};
 use crate::network;
 
-use actix_web::{get, post, web, http, Responder, HttpRequest, HttpResponse};
+use actix_web::{get, post, web, http, HttpRequest, HttpResponse};
 use diesel::prelude::*;
 use askama::Template;
-use log::{info, error, debug};
+use log::{error, debug};
 
 use tokio::sync::Notify;
 use std::sync::Arc;
@@ -37,16 +36,20 @@ async fn show_devices (
     web::block(move ||
         devices::table.load::<models::Device>(&conn))
         .await
-        .map(
-            |devices| {
+        .map(|devices| {
+            if let Ok(devices) = devices {
                 let list = GetDevices { devices };
                 HttpResponse::Ok().body(list.render().unwrap())
-            })
-        .map_err(
-            |err| {
-                error!("{}", err);
+            }
+            else {
+                error!("Error getting list of devices from DB.");
                 HttpResponse::InternalServerError().finish()
-            }).unwrap()
+            }
+        })
+        .map_err(|err| {
+            error!("{}", err);
+            HttpResponse::InternalServerError().finish()
+        }).unwrap()
 }
 
 #[derive(Deserialize)]
@@ -74,7 +77,7 @@ async fn remove_device (
                 .await
                 .map(|_|
                      HttpResponse::SeeOther()
-                     .header(http::header::LOCATION, format!("/users/{}", form.name))
+                     .append_header(("Location", format!("/users/{}", form.name)))
                      .finish())
                 .map_err(
                     |err| {
@@ -91,7 +94,7 @@ struct FormBlockDevice {
 
 #[post("/device/{action}")]
 async fn block_device (
-    web::Path((action)): web::Path<(String)>,
+    action: web::Path<String>,
     form: web::Form<FormBlockDevice>,
     pool: web::Data<Pool>, 
 ) -> HttpResponse {
@@ -101,7 +104,7 @@ async fn block_device (
                  .expect("couldn't get db connection from pool");
 
     debug!("Received action request: {}", action);
-    match action.as_ref() {
+    match action.into_inner().as_ref() {
         "block"     => {
             network::block_ip(&form.ip);
             diesel::update(devices::table.filter(
@@ -120,7 +123,7 @@ async fn block_device (
     }
 
     HttpResponse::SeeOther()
-        .header(http::header::LOCATION, format!("/users/{}", form.name))
+        .append_header(("Location", format!("/users/{}", form.name)))
         .finish()
 }
 
@@ -133,7 +136,7 @@ struct FormNewDevice {
 
 #[post("/users/{name}")]
 async fn add_device (
-    web::Path((name)): web::Path<(String)>,
+    name: web::Path<String>,
     form: web::Form<FormNewDevice>,
     pool: web::Data<Pool>, 
     notify: web::Data<Arc<Notify>>, 
@@ -171,7 +174,7 @@ async fn add_device (
     };
 
     debug!("device: \n{:?}", new_device);
-    notify.notify(); // let device tracking thread know that a device was added
+    notify.notify_one(); // let device tracking thread know that a device was added
 
     web::block(move ||
         diesel::insert_into(devices::table)
@@ -180,7 +183,7 @@ async fn add_device (
                 .await
                 .map(|_|
                      HttpResponse::SeeOther()
-                     .header(http::header::LOCATION, format!("/users/{}", name))
+                     .append_header(("Location", format!("/users/{}", name)))
                      .finish())
                 .map_err(
                     |err| {

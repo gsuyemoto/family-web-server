@@ -1,5 +1,5 @@
 use actix_web::error::BlockingError;
-use actix_web::web::HttpResponse;
+use actix_web::HttpResponse;
 use diesel::result::DatabaseErrorKind::UniqueViolation;
 use diesel::result::Error::{DatabaseError, NotFound};
 use std::fmt;
@@ -33,14 +33,14 @@ impl From<diesel::result::Error> for AppError {
     }
 }
 
-impl From<BlockingError<AppError>> for AppError {
-    fn from(e: BlockingError<AppError>) -> Self {
-        match e {
-            BlockingError::Error(inner) => inner,
-            BlockingError::Canceled => AppError::OperationCanceled,
-        }
-    }
-}
+// impl From<BlockingError> for AppError {
+//     fn from(e: BlockingError) -> Self {
+//         match e {
+//             BlockingError::Error(inner) => inner,
+//             BlockingError::Canceled => AppError::OperationCanceled,
+//         }
+//     }
+// }
 
 #[derive(Debug, Serialize)]
 struct ErrorResponse {

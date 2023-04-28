@@ -1,11 +1,10 @@
 use crate::{models, network, Pool};
 use crate::schema::{users, devices};
-use crate::errors::AppError;
 
-use actix_web::{get, post, web, http, Responder, HttpResponse};
+use actix_web::{get, post, web, HttpResponse};
 use diesel::prelude::*;
 use askama::Template;
-use log::{info, error, debug};
+use log::{info, error};
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg
@@ -80,10 +79,11 @@ pub struct UserProfile {
 
 #[get("/users/{name}")]
 pub async fn user_profile (
-    web::Path((name)): web::Path<(String)>,
+    name: web::Path<(String)>,
     pool: web::Data<Pool>,
 ) -> HttpResponse {
     
+    let name = name.into_inner();
     let conn = pool
                  .get()
                  .expect("couldn't get db connection from pool");
@@ -109,10 +109,8 @@ pub async fn user_profile (
                      Option<String>, 
                      Option<i32>)>(&conn))
                 .await
-                .map(
-                    |results| {
-                        debug!("num results: {}", results.len());
-
+                .map(|query_results| {
+                    if let Ok(results) = query_results {
                         let mut profile = UserProfile { 
                             user_id:    results[0].0,
                             name:       results[0].1.clone(),
@@ -121,24 +119,28 @@ pub async fn user_profile (
                             devices:    Vec::new(),
                         };
 
-                        for result in results {
-                            let device_id = result.4;
+                        for r in results {
+                            let device_id = r.4;
 
                             if let Some(device_id) = device_id {
                                 profile.devices.push((device_id, 
-                                                      result.5.unwrap(), 
-                                                      result.6.unwrap(),
-                                                      result.7.unwrap()));
+                                                      r.5.unwrap(), 
+                                                      r.6.unwrap(),
+                                                      r.7.unwrap()));
                             }
                         }
 
                         HttpResponse::Ok().body(profile.render().unwrap())
-                    })
-                .map_err(
-                    |err| {
-                        error!("{}", err);
+                    }
+                    else {
+                        error!("Error getting user from DB.");
                         HttpResponse::InternalServerError().finish()
-                    }).unwrap()
+                    }
+                })
+                .map_err(|err| {
+                    error!("{}", err);
+                    HttpResponse::InternalServerError().finish()
+                }).unwrap()
 }
 
 #[derive(Template)] 
@@ -161,6 +163,7 @@ pub async fn get_users(
         .await
         .map(
             |users| {
+                let users = users.expect("Error getting users from db");
                 let list = GetUsers { users };
                 HttpResponse::Ok().body(list.render().unwrap())
             })
@@ -195,7 +198,7 @@ async fn create_user (
             .values(&new_user)
             .execute(&conn))
                 .await
-                .map(|_| HttpResponse::SeeOther().header(http::header::LOCATION, "/users").finish())
+                .map(|_| HttpResponse::SeeOther().append_header(("Location", "/users")).finish())
                 .map_err(
                     |err| {
                         error!("{}", err);

@@ -3,20 +3,17 @@ extern crate diesel;
 #[macro_use]
 extern crate serde_derive;
 
-use std::net::{SocketAddrV4, Ipv4Addr};
-use std::time::Duration;
+use std::net::{Ipv4Addr};
 use std::env;
-use std::cell::RefCell;
 use std::sync::Arc;
 
-use log::{debug, error, log_enabled, info, Level};
+// use log::{debug, error, log_enabled, info, Level};
 use dotenv::dotenv;
-use serde_json::json;
 
-use tokio::task::{self, JoinHandle};
+use tokio::task::{self};
 use tokio::sync::Notify;
 
-use actix_web::{web, get, middleware, App, HttpResponse, HttpServer};
+use actix_web::{middleware, App, HttpServer};
 use actix_files as fs;
 
 use diesel::prelude::*;
@@ -86,4 +83,20 @@ async fn main() -> std::io::Result<()> {
     .bind(SERVER_IP)?
     .run()
     .await
+}
+
+// Create a unit test for Actix Web server
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, http::{self, StatusCode, header::ContentType}};
+
+    #[actix_web::test]
+    async fn test_index_ok() {
+        let req = test::TestRequest::default()
+            .insert_header(ContentType::plaintext())
+            .to_http_request();
+        let resp = route_static::index(req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
 }
